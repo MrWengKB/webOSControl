@@ -1,6 +1,7 @@
 # webOSControl
 
 A native Android remote control for LG webOS TVs, written in Kotlin with Jetpack Compose.
+[NOTE] There is a newer app that supports various TV OSes: [SmartTVControl](https://github.com/MrWengKB/SmartTVControl) is now in progress.
 
 ## Features
 
