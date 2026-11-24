@@ -1,3 +1,6 @@
+# v0.1.10
+- Search YouTube from the phone. YouTube on LG TVs ignores typed text, so when YouTube is on screen the keyboard becomes "Search YouTube" and opens YouTube's results for what you type
+
 # v0.1.9
 - Colour buttons back to plain buttons without labels or ? (the TV already shows their functions when you press Up)
 
