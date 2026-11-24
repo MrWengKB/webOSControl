@@ -147,7 +147,7 @@ fun InputsSheet(inputs: List<InputInfo>?, onPick: (InputInfo) -> Unit, onDismiss
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun KeyboardSheet(vm: RemoteViewModel, keyboard: KeyboardState?, onDismiss: () -> Unit) {
+fun KeyboardSheet(vm: RemoteViewModel, keyboard: KeyboardState?, onDismiss: () -> Unit, youTube: Boolean = false) {
     // What we've typed into the TV's current text box. Every change is sent as you type.
     var text by rememberSaveable { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
@@ -161,9 +161,10 @@ fun KeyboardSheet(vm: RemoteViewModel, keyboard: KeyboardState?, onDismiss: () -
             Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp).navigationBarsPadding().imePadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SheetTitle("Type on the TV")
+            SheetTitle(if (youTube) "Search YouTube" else "Type on the TV")
             Text(
-                when (keyboard?.focused) {
+                if (youTube) "YouTube on LG TVs doesn't accept typed text from phones. Type your search here and " +
+                    "press Search; YouTube opens its results." else when (keyboard?.focused) {
                     true -> "The TV's text box is ready. Letters appear on the TV as you type."
                     false -> "Select a text box on the TV (for example YouTube search) and start typing."
                     null -> "Select a text box on the TV, then type here."
@@ -174,7 +175,7 @@ fun KeyboardSheet(vm: RemoteViewModel, keyboard: KeyboardState?, onDismiss: () -
             OutlinedTextField(
                 value = text,
                 onValueChange = { new ->
-                    vm.typed(text, new)
+                    if (!youTube) vm.typed(text, new)
                     text = new
                 },
                 modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
@@ -182,19 +183,23 @@ fun KeyboardSheet(vm: RemoteViewModel, keyboard: KeyboardState?, onDismiss: () -
                 label = { Text("Text") },
                 visualTransformation = if (keyboard?.password == true) PasswordVisualTransformation() else VisualTransformation.None,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { vm.sendEnter() }),
+                keyboardActions = KeyboardActions(onSearch = { if (youTube) vm.searchYouTube(text) else vm.sendEnter() }),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { vm.typed(text, ""); text = "" }, enabled = text.isNotEmpty()) { Text("Clear") }
+                TextButton(onClick = { if (!youTube) vm.typed(text, ""); text = "" }, enabled = text.isNotEmpty()) { Text("Clear") }
                 Spacer(Modifier.weight(1f))
                 RemoteKey(Icons.AutoMirrored.Filled.Backspace, "Delete a character") {
-                    if (text.isNotEmpty()) {
+                    if (youTube) {
+                        text = text.dropLast(1)
+                    } else if (text.isNotEmpty()) {
                         vm.typed(text, text.dropLast(1)); text = text.dropLast(1)
                     } else {
                         vm.backspace()
                     }
                 }
-                RemoteKey(Icons.AutoMirrored.Filled.KeyboardReturn, "Enter", onClick = vm::sendEnter)
+                RemoteKey(Icons.AutoMirrored.Filled.KeyboardReturn, if (youTube) "Search" else "Enter") {
+                    if (youTube) vm.searchYouTube(text) else vm.sendEnter()
+                }
             }
         }
     }

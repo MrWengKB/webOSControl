@@ -181,3 +181,54 @@ suspend fun WebOsClient.tvInfo(): TvInfo {
     val sw = if (parseMac(connection, null) == null) runCatching { request(Ssap.SW_INFO) }.getOrNull() else null
     return TvInfo(system?.string("modelName"), parseMac(connection, sw))
 }
+
+// ---- YouTube search ------------------------------------------------------------------------
+//
+// The webOS YouTube app (youtube.leanback.v4, Cobalt) draws its own on-screen keyboard and
+// ignores the TV's input method, so insertText reaches native webOS text boxes but never
+// YouTube. Instead the app is relaunched with a search in its launch parameters.
+
+const val YOUTUBE_APP_ID = "youtube.leanback.v4"
+const val GET_FOREGROUND_APP = "ssap://com.webos.applicationManager/getForegroundAppInfo"
+const val LIST_APPS = "ssap://com.webos.applicationManager/listApps"
+private const val KEYWORD = "\$SEARCH_KEYWORD"
+
+/** The app on screen, as its id (e.g. youtube.leanback.v4). */
+fun WebOsClient.foregroundAppUpdates(): Flow<String> =
+    subscribe(GET_FOREGROUND_APP).mapNotNull { it.string("appId")?.takeIf(String::isNotBlank) }
+
+/**
+ * Launch parameters that make YouTube search for [query]. Uses the search template the app
+ * declares in `inAppSearchParams` (Cobalt on webOS 4+ declares `{"contentTarget":"q=$SEARCH_KEYWORD"}`),
+ * and falls back to that same form when the TV doesn't report one.
+ */
+fun youtubeSearchParams(query: String, inAppSearchParams: kotlinx.serialization.json.JsonElement?): JsonObject {
+    val encoded = java.net.URLEncoder.encode(query.trim(), "UTF-8").replace("+", "%20")
+    val template = when (inAppSearchParams) {
+        is JsonObject -> inAppSearchParams
+        is JsonPrimitive -> runCatching {
+            kotlinx.serialization.json.Json.parseToJsonElement(inAppSearchParams.content) as? JsonObject
+        }.getOrNull()
+        else -> null
+    }?.takeIf { it.toString().contains(KEYWORD) }
+        ?: return buildJsonObject { put("contentTarget", "q=$encoded") }
+    fun fill(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when (e) {
+        is JsonObject -> JsonObject(e.mapValues { fill(it.value) })
+        is JsonArray -> JsonArray(e.map(::fill))
+        is JsonPrimitive -> if (e.isString && e.content.contains(KEYWORD)) JsonPrimitive(e.content.replace(KEYWORD, encoded)) else e
+    }
+    return fill(template) as JsonObject
+}
+
+/** Opens YouTube on the TV with a search for [query]. Returns the launch parameters used. */
+suspend fun WebOsClient.searchYouTube(query: String): JsonObject {
+    val apps = runCatching { request(LIST_APPS) }.getOrNull()
+    val youtube = (apps?.get("apps") as? JsonArray)?.mapNotNull { it as? JsonObject }
+        ?.firstOrNull { it.string("id") == YOUTUBE_APP_ID }
+    val params = youtubeSearchParams(query, youtube?.get("inAppSearchParams"))
+    request(Ssap.LAUNCH, buildJsonObject {
+        put("id", YOUTUBE_APP_ID)
+        put("params", params)
+    })
+    return params
+}

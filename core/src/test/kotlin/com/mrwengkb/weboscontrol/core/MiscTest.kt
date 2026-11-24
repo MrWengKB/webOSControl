@@ -69,3 +69,16 @@ class MiscTest {
         assertEquals(0 to "", textEdit("same", "same"))
     }
 }
+
+class YouTubeSearchTest {
+    @org.junit.Test fun usesTheAppsSearchTemplate() {
+        val template = kotlinx.serialization.json.Json.parseToJsonElement("""{"contentTarget":"q=${'$'}SEARCH_KEYWORD"}""")
+        org.junit.Assert.assertEquals("""{"contentTarget":"q=lo%20fi%26beats"}""", youtubeSearchParams("lo fi&beats", template).toString())
+        val asString = kotlinx.serialization.json.JsonPrimitive("""{"contentTarget":"https://www.youtube.com/tv?q=${'$'}SEARCH_KEYWORD"}""")
+        org.junit.Assert.assertEquals("""{"contentTarget":"https://www.youtube.com/tv?q=cats"}""", youtubeSearchParams("cats", asString).toString())
+    }
+
+    @org.junit.Test fun fallsBackWithoutATemplate() {
+        org.junit.Assert.assertEquals("""{"contentTarget":"q=cats"}""", youtubeSearchParams(" cats ", null).toString())
+    }
+}

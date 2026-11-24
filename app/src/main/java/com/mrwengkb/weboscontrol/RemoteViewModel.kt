@@ -6,6 +6,8 @@ import android.net.wifi.WifiManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrwengkb.weboscontrol.core.AppInfo
+import com.mrwengkb.weboscontrol.core.foregroundAppUpdates
+import com.mrwengkb.weboscontrol.core.searchYouTube
 import com.mrwengkb.weboscontrol.core.InputInfo
 import com.mrwengkb.weboscontrol.core.KeyboardState
 import com.mrwengkb.weboscontrol.core.keyboardUpdates
@@ -70,6 +72,8 @@ data class UiState(
     val update: UpdateInfo? = null,
     val checkingUpdate: Boolean = false,
     val message: String? = null,
+    /** The app on the TV's screen, e.g. youtube.leanback.v4. */
+    val foregroundApp: String? = null,
 )
 
 class RemoteViewModel(app: Application) : AndroidViewModel(app) {
@@ -238,7 +242,16 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
                 // Older TVs may not support the remote keyboard; typing then falls back to plain insertText.
             }
         }
+        sessionJobs += viewModelScope.launch {
+            runCatching { c.foregroundAppUpdates().collect { app -> _ui.update { it.copy(foregroundApp = app) } } }
+        }
         viewModelScope.launch { ensurePointer() }
+    }
+
+    /** YouTube ignores typed text, so the keyboard sends it a search instead. */
+    fun searchYouTube(query: String) {
+        if (query.isBlank()) return
+        command { it.searchYouTube(query) }
     }
 
     private fun disconnect() {
@@ -250,7 +263,7 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
         pointer = null
         client?.close()
         client = null
-        _ui.update { it.copy(connection = WebOsClient.State.Disconnected, volume = null, keyboard = null) }
+        _ui.update { it.copy(connection = WebOsClient.State.Disconnected, volume = null, keyboard = null, foregroundApp = null) }
     }
 
     private suspend fun ensurePointer(): PointerSocket? = pointerMutex.withLock {

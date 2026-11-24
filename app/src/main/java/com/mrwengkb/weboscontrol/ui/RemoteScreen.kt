@@ -222,7 +222,10 @@ fun RemoteScreen(state: UiState, vm: RemoteViewModel) {
             onDismiss = { sheet = null },
         )
         Sheet.Inputs -> InputsSheet(state.inputs, onPick = { vm.switchInput(it); sheet = null }, onDismiss = { sheet = null })
-        Sheet.Keyboard -> KeyboardSheet(vm, state.keyboard, onDismiss = { sheet = null })
+        Sheet.Keyboard -> KeyboardSheet(
+            vm, state.keyboard, onDismiss = { sheet = null },
+            youTube = state.foregroundApp == com.mrwengkb.weboscontrol.core.YOUTUBE_APP_ID,
+        )
         Sheet.Numbers -> NumberSheet(vm, onDismiss = { sheet = null })
         null -> Unit
     }
